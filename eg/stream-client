@@ -1,0 +1,16 @@
+#!/usr/local/bin/perl
+use strict;
+use warnings;
+
+use XML::Atom::Feed; # needs 0.12_01 or over
+use XML::Atom::Stream;
+
+my $client = XML::Atom::Stream->new(callback => \&callback);
+$client->connect("http://danga.com:8081/atom-stream.xml");
+
+sub callback {
+    my $xml = shift;
+    my $feed = XML::Atom::Feed->new(Stream => \$xml);
+    my $entry = ($feed->entries)[0];
+    print $entry->title . " (by " . $feed->author->name . ")\n";
+}
