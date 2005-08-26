@@ -1,4 +1,9 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.02  Fri Aug 26 00:20:10 UTC 2005
+        - Don't use HTML::Entities because of &hearts; problem
+        - API change so callback now gets XML::Atom::Feed object
+          instead of XML string
+
 0.01  Wed Aug 17 02:03:11 2005
 	- original version

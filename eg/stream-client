@@ -2,15 +2,16 @@
 use strict;
 use warnings;
 
-use XML::Atom::Feed; # needs 0.12_01 or over
 use XML::Atom::Stream;
 
+my $url = shift || "http://danga.com:8081/atom-stream.xml";
+
 my $client = XML::Atom::Stream->new(callback => \&callback);
-$client->connect("http://danga.com:8081/atom-stream.xml");
+$client->connect($url);
 
 sub callback {
-    my $xml = shift;
-    my $feed = XML::Atom::Feed->new(Stream => \$xml);
+    my $feed = shift;
     my $entry = ($feed->entries)[0];
-    print $entry->title . " (by " . $feed->author->name . ")\n";
+    print $entry->title . " (by " . $feed->author->name . ")\n",
+        "  ", $entry->link->href, "\n";
 }

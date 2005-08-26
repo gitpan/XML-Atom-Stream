@@ -2,7 +2,7 @@ package XML::Atom::Stream;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 use Carp;
 use LWP::UserAgent;
@@ -43,8 +43,8 @@ sub on_content_cb {
 }
 
 package XML::Atom::Stream::SAXHandler;
+use XML::Atom::Feed;
 use XML::Handler::Trees;
-use HTML::Entities;
 use base qw( XML::Handler::Tree );
 
 sub end_element {
@@ -59,13 +59,13 @@ sub end_element {
             my($ref) = @_;
             my($elem, $stuff) = splice @$ref, 0, 2;
             if ($elem eq '0') {
-                $xml .= HTML::Entities::encode($stuff);
+                $xml .= encode_xml($stuff);
             }
             elsif ($elem =~ /^\{(.*?)\}(\w+)$/) {
                 my($xmlns, $tag) = ($1, $2);
                 my $attr = shift @$stuff;
                 $xml .= qq(<$tag);
-                $xml .= ' ' . join(' ', map qq($_=") . HTML::Entities::encode($attr->{$_}) . qq("), keys %$attr) if keys %$attr;
+                $xml .= ' ' . join(' ', map qq($_=") . encode_xml($attr->{$_}) . qq("), keys %$attr) if keys %$attr;
                 $xml .= qq( xmlns="$xmlns") if $xmlns ne 'http://www.w3.org/2005/Atom';
                 if (@$stuff) {
                     $xml .= ">";
@@ -78,10 +78,33 @@ sub end_element {
             $dumper->($ref) if @$ref;
         };
         $dumper->($element);
-        eval { $self->{callback}->($xml) };
+        my $feed = XML::Atom::Feed->new(Stream => \$xml);
+        eval { $self->{callback}->($feed) };
         Carp::carp $@ if $@;
     }
 }
+
+my %Map = ('&' => '&amp;', '"' => '&quot;', '<' => '&lt;', '>' => '&gt;',
+           '\'' => '&apos;');
+my $RE = join '|', keys %Map;
+
+sub encode_xml {
+    my($str, $no_cdata) = @_;
+    if (!$no_cdata && $str =~ m/
+        <[^>]+>  ## HTML markup
+        |        ## or
+        &(?:(?!(\#([0-9]+)|\#x([0-9a-fA-F]+))).*?);
+                 ## something that looks like an HTML entity.
+        /x) {
+        ## If ]]> exists in the string, encode the > to &gt;.
+        $str =~ s/]]>/]]&gt;/g;
+        $str = '<![CDATA[' . $str . ']]>';
+    } else {
+        $str =~ s!($RE)!$Map{$1}!g;
+    }
+    $str;
+}
+
 
 1;
 __END__
@@ -102,9 +125,8 @@ XML::Atom::Stream - A client interface for AtomStream
   $client->connect($url);
 
   sub callback {
-      my($xml) = @_;
-      my $feed = XML::Atom::Feed->new(Stream => \$xml);
-      # Note: you'll need XML::Atom >= 0.12_01 to parse Atom 1.0 feed
+      my($atom) = @_;
+      # $atom is a XML::Atom::Feed object
   }
 
 =head1 DESCRIPTION

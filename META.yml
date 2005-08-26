@@ -1,13 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         XML-Atom-Stream
-version:      0.01
+version:      0.02
 version_from: lib/XML/Atom/Stream.pm
 installdirs:  site
 requires:
-    HTML::Parser:                  3
     LWP:                           5
     Test::More:                    0.32
+    XML::Atom:                     0.13
     XML::Handler::Trees:           0.02
     XML::SAX:                      0.12
 
