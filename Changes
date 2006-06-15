@@ -1,5 +1,10 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.03  Thu Jun 15 08:23:42 JST 2006
+        - Support extra xmlns attributes declaration (Thanks to Byrne Reese)
+        - Don't die even if parsing fails
+        - Update eg/stream-client
+
 0.02  Fri Aug 26 00:20:10 UTC 2005
         - Don't use HTML::Entities because of &hearts; problem
         - API change so callback now gets XML::Atom::Feed object

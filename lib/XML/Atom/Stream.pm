@@ -2,7 +2,7 @@ package XML::Atom::Stream;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 use Carp;
 use LWP::UserAgent;
@@ -39,7 +39,8 @@ sub connect {
 
 sub on_content_cb {
     my($self, $data, $res, $proto) = @_;
-    $self->{parser}->parse_string($data);
+    eval { $self->{parser}->parse_string($data) };
+    Carp::carp $@ if $@;
 }
 
 package XML::Atom::Stream::SAXHandler;
@@ -54,6 +55,7 @@ sub end_element {
     if ($ref->{LocalName} eq 'feed') {
         my $element = $self->{Curlist};
         my $xml = qq(<?xml version="1.0" encoding="utf-8"?>\n);
+        my %ns;
         my $dumper;
         $dumper = sub {
             my($ref) = @_;
@@ -61,12 +63,38 @@ sub end_element {
             if ($elem eq '0') {
                 $xml .= encode_xml($stuff);
             }
-            elsif ($elem =~ /^\{(.*?)\}(\w+)$/) {
+            elsif ($elem =~ /^\{(.*?)\}([\w\-]+)$/) {
                 my($xmlns, $tag) = ($1, $2);
                 my $attr = shift @$stuff;
                 $xml .= qq(<$tag);
-                $xml .= ' ' . join(' ', map qq($_=") . encode_xml($attr->{$_}) . qq("), keys %$attr) if keys %$attr;
-                $xml .= qq( xmlns="$xmlns") if $xmlns ne 'http://www.w3.org/2005/Atom';
+
+                my $has_xmlns;
+
+                # extract and replace xmlns declarations
+                for my $key (keys %$attr) {
+                    if ($key =~ m!^\{http://www\.w3\.org/2000/xmlns/\}([\w\-]+)$!) {
+                        my $uri   = delete $attr->{$key};
+                        $ns{$uri} = $1;
+                        $attr->{"xmlns:$1"} = $uri;
+                    }
+                }
+
+                for my $key (keys %$attr) {
+                    my $attr_key;
+                    if ($key =~ /^\{(.*?)\}(\w+)$/) {
+                        my($xmlns, $prefix) = ($1, $2);
+                        my $ns = $ns{$xmlns} || 'unknown';
+                        $attr_key = "$ns:$prefix";
+                    } else {
+                        $attr_key  = $key;
+                        $has_xmlns = 1 if $key eq 'xmlns';
+                    }
+
+                    $xml .= qq( $attr_key=") . encode_xml($attr->{$key}) . qq(");
+                }
+
+                $xml .= qq( xmlns="$xmlns") if $xmlns ne 'http://www.w3.org/2005/Atom' && !$has_xmlns;
+
                 if (@$stuff) {
                     $xml .= ">";
                     $dumper->($stuff);

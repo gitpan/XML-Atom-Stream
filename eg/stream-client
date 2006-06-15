@@ -12,6 +12,7 @@ $client->connect($url);
 sub callback {
     my $feed = shift;
     my $entry = ($feed->entries)[0];
-    print $entry->title . " (by " . $feed->author->name . ")\n",
+    print $entry->title .
+        ($entry->author ? " (by " . $feed->author->name . ")" : '') . "\n",
         "  ", $entry->link->href, "\n";
 }
