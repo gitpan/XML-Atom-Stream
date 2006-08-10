@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our $DEBUG = 0;
 
 use Carp;
@@ -58,7 +58,7 @@ sub start_element {
     return if $ref->{LocalName} eq 'time' || $ref->{LocalName} eq 'atomStream';
 
     if ($ref->{LocalName} eq 'sorryTooSlow') {
-        die "You're too slow and missed ", $ref->{Attributes}->{youMissed}, " entries"
+        warn "You're too slow and missed ", $ref->{Attributes}->{youMissed}, " entries"
             if $DEBUG;
         return;
     }

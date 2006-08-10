@@ -1,5 +1,8 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.06  Fri Aug 11 00:17:36 JST 2006
+        - Don't die if youreTooSlow
+
 0.05  Thu Aug 10 23:33:00 JST 2006
         - Fixed $VERSION gotcha
         - Added handling for <sorryTooSlow>
