@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our $DEBUG = 0;
 
 use Carp;
@@ -56,6 +56,13 @@ sub start_element {
     my $self = shift;
     my($ref) = @_;
     return if $ref->{LocalName} eq 'time' || $ref->{LocalName} eq 'atomStream';
+
+    if ($ref->{LocalName} eq 'sorryTooSlow') {
+        die "You're too slow and missed ", $ref->{Attributes}->{youMissed}, " entries"
+            if $DEBUG;
+        return;
+    }
+
     if ($ref->{LocalName} eq 'feed') {
         $self->{Curlist} = [];
     }
@@ -150,8 +157,6 @@ sub encode_xml {
 # from http://code.sixapart.com/svn/djabberd/trunk/dev/xml-test.pl
 package XML::LibXML::SAX::Better;
 use strict;
-use vars qw($VERSION @ISA);
-$VERSION = '1.00';
 use XML::LibXML;
 use XML::SAX::Base;
 use base qw(XML::SAX::Base);
