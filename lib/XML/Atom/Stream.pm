@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our $DEBUG = 0;
 
 use Carp;
@@ -129,7 +129,8 @@ sub end_element {
         };
         $dumper->($element);
         my $feed = XML::Atom::Feed->new(Stream => \$xml);
-        $self->{callback}->($feed);
+        eval { $self->{callback}->($feed) };
+        Carp::carp $@ if $@;
     }
 }
 

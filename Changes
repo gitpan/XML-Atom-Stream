@@ -1,5 +1,8 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.07  Fri Aug 11 00:46:24 JST 2006
+        - Wrap callback in eval again not to die
+
 0.06  Fri Aug 11 00:17:36 JST 2006
         - Don't die if youreTooSlow
 
