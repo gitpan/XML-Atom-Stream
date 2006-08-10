@@ -7,6 +7,7 @@ WriteMakefile(
         LWP => 5.0,
         XML::SAX => 0.12,
         XML::Handler::Trees => 0.02,
-        XML::Atom => 0.13,
+        XML::Atom => 0.20,
+        XML::LibXML::SAX => '1.00',
     },
 );

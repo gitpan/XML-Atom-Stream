@@ -1,13 +1,14 @@
 package XML::Atom::Stream;
 
 use strict;
-use vars qw($VERSION);
-$VERSION = '0.03';
+our $VERSION = '0.04';
+our $DEBUG = 0;
 
 use Carp;
 use LWP::UserAgent;
-use XML::SAX::ParserFactory;
 use HTTP::Request;
+use XML::SAX::ParserFactory;
+use XML::LibXML::SAX;
 
 sub new {
     my($class, %param) = @_;
@@ -27,7 +28,9 @@ sub _setup_parser {
     my $self = shift;
     my $handler = XML::Atom::Stream::SAXHandler->new;
        $handler->{callback} = $self->{callback};
-    my $parser  = XML::SAX::ParserFactory->parser( Handler => $handler );
+    $XML::SAX::ParserPackage = "XML::LibXML::SAX::Better";
+    my $factory = XML::SAX::ParserFactory->new;
+    my $parser  = $factory->parser(Handler => $handler);
     return $parser;
 }
 
@@ -39,7 +42,8 @@ sub connect {
 
 sub on_content_cb {
     my($self, $data, $res, $proto) = @_;
-    eval { $self->{parser}->parse_string($data) };
+    warn ".\n" if $data =~ /<time>/ && $DEBUG;
+    eval { $self->{parser}->parse_chunk($data) };
     Carp::carp $@ if $@;
 }
 
@@ -48,10 +52,21 @@ use XML::Atom::Feed;
 use XML::Handler::Trees;
 use base qw( XML::Handler::Tree );
 
+sub start_element {
+    my $self = shift;
+    my($ref) = @_;
+    return if $ref->{LocalName} eq 'time' || $ref->{LocalName} eq 'atomStream';
+    if ($ref->{LocalName} eq 'feed') {
+        $self->{Curlist} = [];
+    }
+    $self->SUPER::start_element(@_);
+}
+
 sub end_element {
     my $self = shift;
-    $self->SUPER::end_element(@_);
     my($ref) = @_;
+
+    $self->SUPER::end_element(@_);
     if ($ref->{LocalName} eq 'feed') {
         my $element = $self->{Curlist};
         my $xml = qq(<?xml version="1.0" encoding="utf-8"?>\n);
@@ -107,8 +122,7 @@ sub end_element {
         };
         $dumper->($element);
         my $feed = XML::Atom::Feed->new(Stream => \$xml);
-        eval { $self->{callback}->($feed) };
-        Carp::carp $@ if $@;
+        $self->{callback}->($feed);
     }
 }
 
@@ -133,6 +147,70 @@ sub encode_xml {
     $str;
 }
 
+# from http://code.sixapart.com/svn/djabberd/trunk/dev/xml-test.pl
+package XML::LibXML::SAX::Better;
+use strict;
+use vars qw($VERSION @ISA);
+$VERSION = '1.00';
+use XML::LibXML;
+use XML::SAX::Base;
+use base qw(XML::SAX::Base);
+
+sub new {
+    my ($class, @params) = @_;
+    my $inst = $class->SUPER::new(@params);
+
+    my $libxml = XML::LibXML->new;
+    $libxml->set_handler( $inst );
+    $inst->{LibParser} = $libxml;
+
+    # setup SAX.  1 means "with SAX"
+    $libxml->_start_push(1);
+    $libxml->init_push;
+
+    return $inst;
+}
+
+sub parse_chunk {
+    my ( $self, $chunk ) = @_;
+    my $libxml = $self->{LibParser};
+    my $rv = $libxml->push($chunk);
+}
+
+sub finish_push {
+    my $self = shift;
+    return 1 unless $self->{LibParser};
+    my $parser = delete $self->{LibParser};
+    return eval { $parser->finish_push };
+}
+
+
+# compat for test:
+
+sub _parse_string {
+    my ( $self, $string ) = @_;
+#    $self->{ParserOptions}{LibParser}      = XML::LibXML->new;
+    $self->{ParserOptions}{LibParser}      = XML::LibXML->new()     unless defined $self->{ParserOptions}{LibParser};
+    $self->{ParserOptions}{ParseFunc}      = \&XML::LibXML::parse_string;
+    $self->{ParserOptions}{ParseFuncParam} = $string;
+    return $self->_parse;
+}
+
+sub _parse {
+    my $self = shift;
+    my $args = bless $self->{ParserOptions}, ref($self);
+
+    $args->{LibParser}->set_handler( $self );
+    $args->{ParseFunc}->($args->{LibParser}, $args->{ParseFuncParam});
+
+    if ( $args->{LibParser}->{SAX}->{State} == 1 ) {
+        croak( "SAX Exception not implemented, yet; Data ended before document ended\n" );
+    }
+
+    return $self->end_document({});
+}
+
+package XML::Atom::Stream;
 
 1;
 __END__

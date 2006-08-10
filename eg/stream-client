@@ -3,8 +3,9 @@ use strict;
 use warnings;
 
 use XML::Atom::Stream;
+$XML::Atom::Stream::DEBUG = 1;
 
-my $url = shift || "http://danga.com:8081/atom-stream.xml";
+my $url = shift || "http://updates.sixapart.com/atom-stream.xml";
 
 my $client = XML::Atom::Stream->new(callback => \&callback);
 $client->connect($url);
@@ -13,6 +14,7 @@ sub callback {
     my $feed = shift;
     my $entry = ($feed->entries)[0];
     print $entry->title .
-        ($entry->author ? " (by " . $feed->author->name . ")" : '') . "\n",
+        ($feed->author ? " (by " . $feed->author->name . ")" : '') . "\n",
         "  ", $entry->link->href, "\n";
+    print "  (body: ", length($entry->content->body), " bytes)\n";
 }

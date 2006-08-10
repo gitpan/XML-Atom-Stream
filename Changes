@@ -1,5 +1,10 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.04  Thu Aug 10 22:58:07 JST 2006
+        - Update XML::SAX::ParserFactory ParserPackage to use XML::LibXML::SAX::Better
+          which is an extended SAX handler by Djabberd project. Now
+          this module actually works.
+
 0.03  Thu Jun 15 08:23:42 JST 2006
         - Support extra xmlns attributes declaration (Thanks to Byrne Reese)
         - Don't die even if parsing fails
