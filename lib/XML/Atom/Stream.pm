@@ -1,8 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.07';
-our $DEBUG = 0;
+our $VERSION = '0.08';
 
 use Carp;
 use LWP::UserAgent;
@@ -28,6 +27,7 @@ sub _setup_parser {
     my $self = shift;
     my $handler = XML::Atom::Stream::SAXHandler->new;
        $handler->{callback} = $self->{callback};
+       $handler->{debug}    = $self->{debug};
     $XML::SAX::ParserPackage = "XML::LibXML::SAX::Better";
     my $factory = XML::SAX::ParserFactory->new;
     my $parser  = $factory->parser(Handler => $handler);
@@ -38,13 +38,24 @@ sub connect {
     my($self, $url) = @_;
     $url or Carp::croak("URL needed for connect()");
     $self->{ua}->get($url, ':content_cb' => sub { $self->on_content_cb(@_) });
+
+    if ($self->{reconnect}) {
+        warn "Trying to reconnect" if $self->{debug};
+        $self->{parser} = $self->_setup_parser;
+        $self->connect($url);
+    }
 }
 
 sub on_content_cb {
     my($self, $data, $res, $proto) = @_;
-    warn ".\n" if $data =~ /<time>/ && $DEBUG;
+    warn ".\n" if $data =~ /<time>/ && $self->{debug};
     eval { $self->{parser}->parse_chunk($data) };
-    Carp::carp $@ if $@;
+    if ($@ && $@ =~ /xmlParse/) {
+        warn "Disconnected." if $self->{debug};
+        die;
+    } elsif ($@) {
+        Carp::carp $@;
+    }
 }
 
 package XML::Atom::Stream::SAXHandler;
@@ -59,7 +70,7 @@ sub start_element {
 
     if ($ref->{LocalName} eq 'sorryTooSlow') {
         warn "You're too slow and missed ", $ref->{Attributes}->{youMissed}, " entries"
-            if $DEBUG;
+            if $self->{debug};
         return;
     }
 
@@ -128,8 +139,10 @@ sub end_element {
             $dumper->($ref) if @$ref;
         };
         $dumper->($element);
-        my $feed = XML::Atom::Feed->new(Stream => \$xml);
-        eval { $self->{callback}->($feed) };
+        eval {
+            my $feed = XML::Atom::Feed->new(Stream => \$xml);
+            $self->{callback}->($feed);
+        };
         Carp::carp $@ if $@;
     }
 }
@@ -232,7 +245,9 @@ XML::Atom::Stream - A client interface for AtomStream
   my $url = "http://danga.com:8081/atom-stream.xml";
 
   my $client = XML::Atom::Stream->new(
-      callback => \&callback,
+      callback  => \&callback,
+      reconnect => 1,
+      debug     => 1,
   );
   $client->connect($url);
 

@@ -1,5 +1,9 @@
 Revision history for Perl extension XML::Atom::Stream
 
+0.08  Sat Aug 12 18:15:37 JST 2006
+        - Removed $DEBUG and make it $self->{debug}
+        - Added 'reconnect' option to automatically reconnect to the stream when disconnected
+
 0.07  Fri Aug 11 00:46:24 JST 2006
         - Wrap callback in eval again not to die
 
