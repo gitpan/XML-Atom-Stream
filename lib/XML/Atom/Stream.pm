@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use Carp;
 use LWP::UserAgent;
@@ -18,9 +18,11 @@ sub new {
 
 sub init {
     my $self = shift;
-    $self->{ua} ||= LWP::UserAgent->new(agent => "XML::Atom::Stream/$VERSION");
+    $self->{ua} ||= LWP::UserAgent->new(
+        agent => "XML::Atom::Stream/$VERSION",
+        timeout => $self->{timeout} || 15,
+    );
     $self->{callback} or Carp::croak("no callback specified.");
-    $self->{parser} = $self->_setup_parser;
 }
 
 sub _setup_parser {
@@ -28,7 +30,7 @@ sub _setup_parser {
     my $handler = XML::Atom::Stream::SAXHandler->new;
        $handler->{callback} = $self->{callback};
        $handler->{debug}    = $self->{debug};
-    $XML::SAX::ParserPackage = "XML::LibXML::SAX::Better";
+    local $XML::SAX::ParserPackage = "XML::LibXML::SAX::Better";
     my $factory = XML::SAX::ParserFactory->new;
     my $parser  = $factory->parser(Handler => $handler);
     return $parser;
@@ -37,11 +39,17 @@ sub _setup_parser {
 sub connect {
     my($self, $url) = @_;
     $url or Carp::croak("URL needed for connect()");
+
+    $self->{parser} = $self->_setup_parser;
     $self->{ua}->get($url, ':content_cb' => sub { $self->on_content_cb(@_) });
 
-    if ($self->{reconnect}) {
+    if ($self->{debug}) {
+        warn "Disconnected.", $@ ? " ($@)" : "";
+    }
+
+    if ($self->{reconnect} && (!$self->{__exception} || $self->{__exception} =~ /xmlParse/)) {
         warn "Trying to reconnect" if $self->{debug};
-        $self->{parser} = $self->_setup_parser;
+        delete $self->{__exception};
         $self->connect($url);
     }
 }
@@ -50,11 +58,9 @@ sub on_content_cb {
     my($self, $data, $res, $proto) = @_;
     warn ".\n" if $data =~ /<time>/ && $self->{debug};
     eval { $self->{parser}->parse_chunk($data) };
-    if ($@ && $@ =~ /xmlParse/) {
-        warn "Disconnected." if $self->{debug};
-        die;
-    } elsif ($@) {
-        Carp::carp $@;
+    if ($@) {
+        $self->{__exception} = $@;
+        die $@;
     }
 }
 
@@ -69,7 +75,7 @@ sub start_element {
     return if $ref->{LocalName} eq 'time' || $ref->{LocalName} eq 'atomStream';
 
     if ($ref->{LocalName} eq 'sorryTooSlow') {
-        warn "You're too slow and missed ", $ref->{Attributes}->{youMissed}, " entries"
+        warn "You're too slow and missed ", $ref->{Attributes}->{'{}youMissed'}->{Value}, " entries"
             if $self->{debug};
         return;
     }
@@ -139,11 +145,13 @@ sub end_element {
             $dumper->($ref) if @$ref;
         };
         $dumper->($element);
-        eval {
-            my $feed = XML::Atom::Feed->new(Stream => \$xml);
-            $self->{callback}->($feed);
-        };
-        Carp::carp $@ if $@;
+        my $feed = eval { XML::Atom::Feed->new(Stream => \$xml) };
+        if ($@) {
+            warn "Feed parse error: $@" if $self->{debug};
+            return;
+        }
+
+        $self->{callback}->($feed);
     }
 }
 
@@ -242,12 +250,13 @@ XML::Atom::Stream - A client interface for AtomStream
 
   use XML::Atom::Stream;
 
-  my $url = "http://danga.com:8081/atom-stream.xml";
+  my $url = "http://updates.sixapart.com/atom-stream.xml";
 
   my $client = XML::Atom::Stream->new(
       callback  => \&callback,
       reconnect => 1,
       debug     => 1,
+      timeout   => 30,
   );
   $client->connect($url);
 
@@ -258,7 +267,63 @@ XML::Atom::Stream - A client interface for AtomStream
 
 =head1 DESCRIPTION
 
-XML::Atom::Stream is a consumer of AtomStream.
+XML::Atom::Stream is a consumer of AtomStream. It connects to Atom
+stream, the never ending Atom feed and parses the feed by SAX pull
+parser. Whenever it retrieves a new feed, your callback function will
+be invoked.
+
+=head1 METHODS
+
+=over 4
+
+=item new
+
+  my $client = XML::Atom::Stream->new(
+      callback  => \&callback,
+      reconnect => 1,
+      debug     => 1,
+  );
+
+Creates a new XML::Atom::Stream instance.
+
+=over 8
+
+=item callback
+
+Callback reference to handle new Atom feed. Callback function will
+receive only one parameter, XML::Atom::Feed object. You can abort the
+connection by throwing an exception (die) inside the callback.
+
+=item reconnect
+
+Whether to do automatic reconnection when the SAX parser fails to
+parse the stream data, or the connection gets disconnected. Note that
+if you abort the connection by dying inside the callback, it won't
+reconnect. Defaults to 0.
+
+=item timeout
+
+timeout variable which is passed to LWP::UserAgent. Defaults to 15.
+
+=item ua
+
+an object of LWP::UserAgent or its subclass to use to connect to the
+Atom stream. Optional and by default it tries to create its own
+LWP::UserAgent object.
+
+=item debug
+
+Whether to display debug messages. Defaults to 0.
+
+=back
+
+=item connect
+
+  $client->connect($url);
+
+Connects to the Atom stream URL and waits for the incoming feeds.
+
+=back
 
 =head1 AUTHOR
 
