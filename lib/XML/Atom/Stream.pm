@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Carp;
 use LWP::UserAgent;
@@ -146,6 +146,7 @@ sub end_element {
         };
         $dumper->($element);
         my $feed = eval { XML::Atom::Feed->new(Stream => \$xml) };
+        $dumper = 0; # to avoid memory leak
         if ($@) {
             warn "Feed parse error: $@" if $self->{debug};
             return;
