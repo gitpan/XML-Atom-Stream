@@ -1,7 +1,7 @@
 package XML::Atom::Stream;
 
 use strict;
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 use Carp;
 use LWP::UserAgent;
@@ -122,7 +122,7 @@ sub end_element {
                     my $attr_key;
                     if ($key =~ /^\{(.*?)\}(\w+)$/) {
                         my($xmlns, $prefix) = ($1, $2);
-                        my $ns = $ns{$xmlns} || 'unknown';
+                        my $ns = $ns{$xmlns} || 'xml'; # xml:lang
                         $attr_key = "$ns:$prefix";
                     } else {
                         $attr_key  = $key;
